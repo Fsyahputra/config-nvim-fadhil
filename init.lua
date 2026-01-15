@@ -4,8 +4,7 @@
 ==================== READ THIS BEFORE CONTINUING ====================
 =====================================================================
 ========                                    .-----.          ========
-========         .----------------------.   | === |          ========
-========         |.-""""""""""""""""""-.|   |-----|          ========
+========         .----------------------.   | === |          ======== ========         |.-""""""""""""""""""-.|   |-----|          ========
 ========         ||                    ||   | === |          ========
 ========         ||   KICKSTART.NVIM   ||   |-----|          ========
 ========         ||                    ||   | === |          ========
@@ -117,6 +116,9 @@ vim.api.nvim_create_autocmd("FileType", {
 		vim.opt_local.expandtab = true -- false kalau Prettier pakai tabs
 	end,
 })
+
+vim.opt.foldmethod = "expr"
+vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
 
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
@@ -376,7 +378,29 @@ require("lazy").setup({
 			{ "folke/which-key.nvim" },
 		},
 	},
+	{
+		"MeanderingProgrammer/render-markdown.nvim",
+		dependencies = {
+			{ "nvim-treesitter/nvim-treesitter", "nvim-mini/mini.nvim" }, -- if you use the mini.nvim suite
+			{ "nvim-treesitter/nvim-treesitter", "nvim-mini/mini.icons" }, -- if you use standalone mini plugins
+			{ "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" },
+		}, -- if you prefer nvim-web-devicons
+		---@module 'render-markdown'
+		---@type render.md.UserConfig
+		opts = {},
+	},
+	{
+		"github/copilot.vim",
+	},
 
+	{
+		"kiyoon/jupynium.nvim",
+		build = "pip3 install --user .",
+		-- build = "uv pip install . --python=$HOME/.virtualenvs/jupynium/bin/python",
+		-- build = "conda run --no-capture-output -n jupynium pip install .",
+	},
+	"rcarriga/nvim-notify", -- optional
+	"stevearc/dressing.nvim", -- optional, UI for :JupyniumKernelSelect
 	{
 		"L3MON4D3/LuaSnip",
 		version = "2.*",
@@ -1001,14 +1025,15 @@ require("lazy").setup({
 						},
 					},
 				},
+				dockerls = {},
 				-- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
-				--
 				-- Some languages (like typescript) have entire language plugins that can be useful:
 				--    https://github.com/pmizio/typescript-tools.nvim
 				--
 				-- But for many setups, the LSP (`ts_ls`) will work just fine
 				ts_ls = {},
 				bashls = {},
+
 				--
 
 				lua_ls = {
@@ -1025,6 +1050,7 @@ require("lazy").setup({
 						},
 					},
 				},
+				checkmake = {},
 			}
 
 			-- Ensure the servers and tools above are installed
@@ -1048,17 +1074,21 @@ require("lazy").setup({
 
 			require("mason-lspconfig").setup({
 				ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
-				automatic_installation = false,
-				handlers = {
-					function(server_name)
-						local server = servers[server_name] or {}
-						-- This handles overriding only values explicitly passed
-						-- by the server configuration above. Useful when disabling
-						-- certain features of an LSP (for example, turning off formatting for ts_ls)
-						server.capabilities = vim.tbl_deep_extend("force", {}, capabilities, server.capabilities or {})
-						require("lspconfig")[server_name].setup(server)
-					end,
-				},
+				-- automatic_installation = false,
+				-- automatic_enable
+				automatic_enable = true,
+
+				-- handlers = {
+				-- 	function(server_name)
+				-- 		local server = servers[server_name] or {}
+				-- 		vim.notify("Configuring LSP: " .. server_name, vim.log.levels.INFO, { title = "LSP Setup" })
+				-- 		-- This handles overriding only values explicitly passed
+				-- 		-- by the server configuration above. Useful when disabling
+				-- 		-- certain features of an LSP (for example, turning off formatting for ts_ls)
+				-- 		server.capabilities = vim.tbl_deep_extend("force", {}, capabilities, server.capabilities or {})
+				-- 		require("lspconfig")[server_name].setup(server)
+				-- 	end,
+				-- },
 			})
 		end,
 	},
@@ -1071,7 +1101,17 @@ require("lazy").setup({
 			{
 				"<leader>f",
 				function()
-					require("conform").format({ async = true, lsp_format = "fallback" })
+					local buf_ft = vim.bo.filetype
+					local lsp_format_op
+					if buf_ft == "sql" then
+						lsp_format_op = "never"
+					else
+						lsp_format_op = "fallback"
+					end
+					require("conform").format({
+						async = true,
+						lsp_format = lsp_format_op,
+					})
 				end,
 				mode = "",
 				desc = "[F]ormat buffer",
@@ -1084,6 +1124,11 @@ require("lazy").setup({
 				-- have a well standardized coding style. You can add additional
 				-- languages here or re-enable it for the disabled ones.
 				local disable_filetypes = { c = true, cpp = true }
+				local is_sql = vim.bo[bufnr].filetype == "sql"
+				if is_sql then
+					return nil
+				end
+
 				if disable_filetypes[vim.bo[bufnr].filetype] then
 					return nil
 				else
@@ -1100,7 +1145,9 @@ require("lazy").setup({
 				-- python = { "isort", "black" },
 				--
 				-- You can use 'stop_after_first' to run the first available formatter from the list
+				sql = { nil, stop_after_first = true }, -- Disable formatting for SQL files
 				javascript = { "prettierd", "prettier", stop_after_first = true },
+				yaml = { "yamlfmt", "prettier", stop_after_first = true },
 			},
 		},
 	},
@@ -1222,7 +1269,19 @@ require("lazy").setup({
 			-- Load the colorscheme here.
 			-- Like many other themes, this one has different styles, and you could load
 			-- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-			vim.cmd.colorscheme("tokyonight-night")
+			-- vim.cmd.colorscheme("tokyonight")
+		end,
+	},
+
+	{
+		"Shatur/neovim-ayu",
+		lazy = false, -- load saat startup
+		priority = 1000,
+		config = function()
+			require("ayu").setup({
+				mirage = true, -- false = dark, true = mirage
+			})
+			vim.cmd.colorscheme("ayu")
 		end,
 	},
 
