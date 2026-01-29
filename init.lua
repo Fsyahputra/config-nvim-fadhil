@@ -426,8 +426,16 @@ require("lazy").setup({
 					},
 				})
 			end
+
+			local header_height = #header_lines
+			local win_height = vim.fn.winheight(0)
+
+			local top_padding = math.floor((win_height - header_height) / 2) - 2
+			if top_padding < 0 then
+				top_padding = 0
+			end
 			local layout = {
-				{ type = "padding", val = 2 },
+				{ type = "padding", val = top_padding },
 			}
 
 			vim.list_extend(layout, header_sections)
@@ -442,6 +450,33 @@ require("lazy").setup({
 			}
 
 			alpha.setup(config)
+
+			-- =========================
+			-- Animated header colors
+			-- =========================
+			local timer = vim.loop.new_timer()
+			local last_colors = {}
+
+			timer:start(
+				0, -- langsung jalan
+				500, -- tiap 1 detik
+				vim.schedule_wrap(function()
+					for i = 1, #header_lines do
+						local new_color
+						repeat
+							new_color = colors[math.random(#colors)]
+						until new_color ~= last_colors[i]
+
+						last_colors[i] = new_color
+						vim.api.nvim_set_hl(0, header_hl[i], { fg = new_color })
+					end
+
+					-- force redraw alpha
+					if vim.bo.filetype == "alpha" then
+						vim.cmd("redraw")
+					end
+				end)
+			)
 		end,
 	},
 
