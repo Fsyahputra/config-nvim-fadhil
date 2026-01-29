@@ -39,6 +39,7 @@ What is Kickstart?
     reference for how Neovim integrates Lua.
     - :help lua-guide
     - (or HTML version): https://neovim.io/doc/user/lua-guide.html
+    
 
 Kickstart Guide:
 
@@ -193,7 +194,6 @@ vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagn
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
-
 -- TIP: Disable arrow keys in normal mode
 vim.keymap.set("n", "<left>", '<cmd>echo "Use h to move!!"<CR>')
 vim.keymap.set("n", "<right>", '<cmd>echo "Use l to move!!"<CR>')
@@ -236,6 +236,16 @@ vim.api.nvim_create_autocmd("FileType", {
 		vim.keymap.set("n", "<F5>", function()
 			run_in_term("gcc % -o %< && ./%<")
 		end, { buffer = true, desc = "Compile & run C in terminal" })
+	end,
+})
+
+vim.api.nvim_create_autocmd("FileType", {
+	pattern = { "c", "cpp", "h" },
+	callback = function()
+		vim.opt_local.tabstop = 4 -- lebar satu tab = 4 spasi
+		vim.opt_local.shiftwidth = 4 -- level indent = 4 spasi
+		vim.opt_local.softtabstop = 4 -- tab behaves seperti 4 spasi
+		vim.opt_local.expandtab = true -- pakai spasi, bukan tab
 	end,
 })
 
@@ -328,6 +338,138 @@ require("lazy").setup({
 	-- 	dependencies = { "nvim-lua/plenary.nvim", "neovim/nvim-lspconfig" },
 	-- 	opts = {},
 	-- },
+	--
+
+	{
+		"goolord/alpha-nvim",
+		event = "VimEnter",
+		config = function()
+			local alpha = require("alpha")
+
+			local colors = {
+				-- purple / violet
+				"#c792ea",
+				"#bb9af7",
+				"#b877db",
+				"#a277ff",
+				"#9d7cd8",
+
+				-- blue
+				"#82aaff",
+				"#7aa2f7",
+				"#6cb6ff",
+				"#61afef",
+				"#5ea1ff",
+
+				-- cyan / sky
+				"#89ddff",
+				"#7dcfff",
+				"#73daca",
+				"#6dd7d6",
+				"#5ccfe6",
+
+				-- soft green (biar gak monoton)
+				"#a6e3a1",
+				"#98c379",
+				"#9ece6a",
+
+				-- accent
+				"#f2cdcd",
+				"#f9e2af",
+			}
+
+			local header_hl = {}
+
+			for i, c in ipairs(colors) do
+				local name = "AlphaHeader" .. i
+				vim.api.nvim_set_hl(0, name, { fg = c })
+				header_hl[i] = name
+			end
+
+			local header_lines = {
+				[[ ███╗   ██╗  ██████╗  ██████╗ ██████╗ ██╗███╗   ██╗ ██████╗  ]],
+				[[ ████╗  ██║ ██╔════╝ ██╔═══██╗██╔══██╗██║████╗  ██║██╔════╝  ]],
+				[[ ██╔██╗ ██║ ██║  ███╗██║   ██║██║  ██║██║██╔██╗ ██║██║  ███╗ ]],
+				[[ ██║╚██╗██║ ██║   ██║██║   ██║██║  ██║██║██║╚██╗██║██║   ██║ ]],
+				[[ ██║ ╚████║ ╚██████╔╝╚██████╔╝██████╔╝██║██║ ╚████║╚██████╔╝ ]],
+				[[ ╚═╝  ╚═══╝  ╚═════╝  ╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝  ]],
+				[[ ██████╗  ██████╗  █████╗         █████╗                     ]],
+				[[ ██╔══██╗██╔══██╗██╔═══██╗      ███╔══██╗                    ]],
+				[[ ██████╔╝██████╔╝██║   ██║      ╚█████╔╝                     ]],
+				[[ ██╔══██╗██╔══██╗██║   ██║      ██╔══╝                       ]],
+				[[ ██████╔╝██║  ██║╚██████╔╝      ██║                          ]],
+				[[ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝       ╚═╝                          ]],
+			}
+			local last = nil
+
+			for i = 1, #header_lines do
+				local color
+				repeat
+					color = colors[math.random(#colors)]
+				until color ~= last
+
+				last = color
+				local name = "AlphaHeader" .. i
+				vim.api.nvim_set_hl(0, name, { fg = color })
+				header_hl[i] = name
+			end
+
+			local header_sections = {}
+
+			for i, line in ipairs(header_lines) do
+				table.insert(header_sections, {
+					type = "text",
+					val = line,
+					opts = {
+						position = "center",
+						hl = header_hl[i],
+					},
+				})
+			end
+			local layout = {
+				{ type = "padding", val = 2 },
+			}
+
+			vim.list_extend(layout, header_sections)
+
+			table.insert(layout, { type = "padding", val = 2 })
+
+			local config = {
+				layout = layout,
+				opts = {
+					margin = 5,
+				},
+			}
+
+			alpha.setup(config)
+		end,
+	},
+
+	{
+		"akinsho/toggleterm.nvim",
+		version = "*",
+		keys = {
+			{ "<leader>t", ":ToggleTerm<CR> ", desc = "Toggle Right Terminal", mode = "n" },
+			{ "<C-t>", ":TermNew<CR>", desc = "Open New Terminal", mode = { "n", "t" } },
+		},
+		opts = {
+			size = 20, -- lebar terminal
+			open_mapping = [[<leader>t]],
+			hide_numbers = true,
+			start_in_insert = false,
+			insert_mappings = false, -- bisa pakai insert mode mapping default
+			persist_size = true,
+			close_on_exit = true,
+			shade_terminals = false,
+			direction = "horizontal",
+			highlights = {
+				Normal = {
+					guibg = "#1e1e2e",
+					guifg = "#cdd6f4",
+				},
+			},
+		},
+	},
 	{
 		"anurag3301/nvim-platformio.lua",
 		cmd = { "Pioinit", "Piorun", "Piocmdh", "Piocmdf", "Piolib", "Piomon", "Piodebug", "Piodb" },
@@ -391,6 +533,26 @@ require("lazy").setup({
 	},
 	{
 		"github/copilot.vim",
+		config = function()
+			-- matiin default Tab mapping
+			-- vim.g.copilot_no_tab_map = true
+			-- accept suggestion pakai Ctrl+Tab
+			-- vim.api.nvim_set_keymap("i", "<C-Tab>", 'copilot#Accept("<CR>")', { expr = true, silent = true })
+			-- vim.api.nvim_set_keymap("s", "<C-Tab>", 'copilot#Accept("<CR>")', { expr = true, silent = true })
+
+			-- -- opsional: navigasi next/prev suggestion
+			-- vim.api.nvim_set_keymap("i", "<C-]>", "copilot#Next()", { expr = true, silent = true })
+			-- vim.api.nvim_set_keymap("i", "<C-[>", "copilot#Previous()", { expr = true, silent = true })
+			--
+
+			vim.g.copilot_no_tab_map = true
+			---
+			---
+			---  hei copilot
+
+			vim.keymap.set("i", "<C-;>", "<Plug>(copilot-accept-word)")
+			vim.keymap.set("i", "<C-M-;>", "<Plug>(copilot-accept-line)")
+		end,
 	},
 
 	{
@@ -1088,7 +1250,16 @@ require("lazy").setup({
 				-- 		server.capabilities = vim.tbl_deep_extend("force", {}, capabilities, server.capabilities or {})
 				-- 		require("lspconfig")[server_name].setup(server)
 				-- 	end,
+				--
 				-- },
+				--
+				vim.lsp.config("clangd", {
+					cmd = {
+						"clangd",
+						"--background-index",
+						"--compile-commands-dir=.",
+					},
+				}),
 			})
 		end,
 	},
